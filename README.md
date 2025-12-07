@@ -1,2 +1,141 @@
 # snakesena000WebApp
-My first prototype Web Application.
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K.SENA000WebApp</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #fff; /* 背景を白に */
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="mainCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+
+        // ピアノ音の周波数 (C4からB4までの12音)
+        const frequencies = [
+            261.63, 277.18, 293.66, 311.13, 329.63, 349.23,
+            369.99, 392.00, 415.30, 440.00, 466.16, 493.88
+        ];
+
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(frequency) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.type = 'sine'; // サイン波でピアノに近い音色に
+            oscillator.frequency.value = frequency;
+
+            gainNode.gain.value = 0.3; // 音量
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 2.5); // 残響を少し長く
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 3); // 音の再生時間も少し長く
+        }
+
+        function getRandomFrequency() {
+            return frequencies[Math.floor(Math.random() * frequencies.length)];
+        }
+
+        function getRandomBrightColor() {
+            // 彩度と輝度が高めのランダムな色を生成
+            const hue = Math.random() * 360;
+            const saturation = Math.random() * 50 + 50; // 50%から100%の彩度
+            const lightness = Math.random() * 50 + 50;   // 50%から100%の輝度
+            return hslToRgb(hue, saturation, lightness);
+        }
+
+        function hslToRgb(h, s, l) {
+            s /= 100;
+            l /= 100;
+
+            const k = n => (n + h / 30) % 12;
+            const a = s * Math.min(l, 1 - l);
+            const f = n =>
+                l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+
+            return { r: Math.round(255 * f(0)), g: Math.round(255 * f(8)), b: Math.round(255 * f(4)) };
+        }
+
+        class Ripple {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.radius = 1;
+                this.color = color;
+                this.opacity = 1;
+                this.speed = 2; // 広がる速度を遅く
+                this.fadeSpeed = 0.01; // 透明になる速度を遅く
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${this.opacity})`;
+                ctx.fill();
+            }
+
+            update() {
+                this.radius += this.speed;
+                this.opacity -= this.fadeSpeed;
+            }
+        }
+
+        const ripples = [];
+
+        function createRipple(event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const randomColor = getRandomBrightColor();
+            ripples.push(new Ripple(x, y, randomColor));
+            playSound(getRandomFrequency());
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.clearRect(0, 0, width, height);
+
+            for (let i = ripples.length - 1; i >= 0; i--) {
+                ripples[i].update();
+                ripples[i].draw();
+                if (ripples[i].opacity <= 0) {
+                    ripples.splice(i, 1);
+                }
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        });
+
+        canvas.addEventListener('mousedown', createRipple);
+        canvas.addEventListener('touchstart', createRipple);
+
+        animate();
+    </script>
+</body>
+</html>
